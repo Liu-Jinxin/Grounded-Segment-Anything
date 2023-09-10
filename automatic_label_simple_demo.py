@@ -20,7 +20,7 @@ import torchvision.transforms as TS
 
 
 # Hyper-Params
-SOURCE_IMAGE_PATH = "./assets/demo9.jpg"
+SOURCE_IMAGE_PATH = "./rosbag_realsense/desk_top3.jpg"
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 GROUNDING_DINO_CONFIG_PATH = "GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py"
@@ -63,17 +63,17 @@ DELETE_TAG_INDEX = []  # filter out attributes and action which are difficult to
 for idx in range(3012, 3429):
     DELETE_TAG_INDEX.append(idx)
 
-# tag2text_model = tag2text.tag2text_caption(
-#     pretrained=TAG2TEXT_CHECKPOINT_PATH,
-#     image_size=384,
-#     vit='swin_b',
-#     delete_tag_index=DELETE_TAG_INDEX
-# )
-# # threshold for tagging
-# # we reduce the threshold to obtain more tags
-# tag2text_model.threshold = TAG2TEXT_THRESHOLD
-# tag2text_model.eval()
-# tag2text_model = tag2text_model.to(DEVICE)
+tag2text_model = tag2text.tag2text_caption(
+    pretrained=TAG2TEXT_CHECKPOINT_PATH,
+    image_size=384,
+    vit='swin_b',
+    delete_tag_index=DELETE_TAG_INDEX
+)
+# threshold for tagging
+# we reduce the threshold to obtain more tags
+tag2text_model.threshold = TAG2TEXT_THRESHOLD
+tag2text_model.eval()
+tag2text_model = tag2text_model.to(DEVICE)
 
 ram_model = tag2text.ram(pretrained=RAM_CHECKPOINT_PATH,
                                         image_size=384,
@@ -164,4 +164,4 @@ annotated_image = mask_annotator.annotate(scene=image.copy(), detections=detecti
 annotated_image = box_annotator.annotate(scene=annotated_image, detections=detections, labels=labels)
 
 # save the annotated grounded-sam image
-cv2.imwrite("ram_grounded_sam_auto_annotated_image.jpg", annotated_image)
+cv2.imwrite("t.jpg", annotated_image)

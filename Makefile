@@ -35,9 +35,12 @@ endif
 ifeq (,$(wildcard ./groundingdino_swint_ogc.pth))
 	wget https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth
 endif
-	docker run --gpus all -it --rm --net=host --privileged \
-	-v /tmp/.X11-unix:/tmp/.X11-unix \
-	-v "${PWD}":/home/appuser/working_dir \
-	-e DISPLAY=$DISPLAY \
-	--name=gsa \
-	--ipc=host -it gsa:v0
+	docker run --gpus all -it --net=host --privileged \
+	--env="NVIDIA_DRIVER_CAPABILITIES=all" \
+	--env="DISPLAY" \
+    --env="QT_X11_NO_MITSHM=1" \
+    -v "/tmp/.X11-unix:/tmp/.X11-unix:rw" \
+	-v "${PWD}":/home/appuser/catkin_ws/src/grounded_sam \
+	-v /home/jinxin/mydata/RosData/rosbag_realsense:/home/appuser/catkin_ws/src/grounded_sam/rosbag_realsense \
+	--name=gsa_ros \
+	--ipc=host gsa:v0
