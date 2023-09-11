@@ -112,6 +112,21 @@ class GroundedSAMServiceNode:
         sam_predictor = self.load_sam_model()
         return grounding_dino_model, ram_model, sam_predictor
 
+    def show_mask(self, mask, ax, random_color=False):
+        if random_color:
+            color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
+        else:
+            color = np.array([30/255, 144/255, 255/255, 0.6])
+        h, w = mask.shape[-2:]
+        mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
+        ax.imshow(mask_image)
+
+    def show_box(self, box, ax, label):
+        x0, y0 = box[0], box[1]
+        w, h = box[2] - box[0], box[3] - box[1]
+        ax.add_patch(plt.Rectangle((x0, y0), w, h, edgecolor='green', facecolor=(0,0,0,0), lw=2)) 
+        ax.text(x0, y0, label)
+
     def image_callback(self, data):
         self.latest_image_msg = data
     
@@ -120,7 +135,7 @@ class GroundedSAMServiceNode:
             return
         
         # Process the image using your models
-        mask, tags = self.generate_mask_and_tags(self.latest_image_msg)
+        mask = self.generate_mask_and_tags(self.latest_image_msg)
 
         # If you have other publishers, you can publish the result here.
     
@@ -175,13 +190,19 @@ class GroundedSAMServiceNode:
 
     def generate_mask_and_tags(self, image_msg):
         image_pil, image = self.load_image_from_msg(image_msg)
+        normalize = TS.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        transform = TS.Compose([TS.Resize((384, 384)), TS.ToTensor(), normalize])
+
+        raw_image = image_pil.resize((384, 384))
+        raw_image  = transform(raw_image).unsqueeze(0).to(self.device)
 
         # Get tags using RAM model
-        transformed_image = transform(image_pil).unsqueeze(0).to(self.device)
-        res = inference_ram.inference(transformed_image, self.ram_model)
+        res = inference_ram.inference(raw_image, self.ram_model)
 
+        # Currently ", " is better for detecting single tags
+        # while ". " is a little worse in some case
         tags = res[0].replace(' |', ',')
-        tags_chinese = res[1].replace(' |', ',')
+        print("Image Tags: ", res[0])
 
         # Grounding DINO
         boxes_filt, scores, pred_phrases = self.get_grounding_output(
@@ -190,15 +211,39 @@ class GroundedSAMServiceNode:
 
         # Initialize SAM
         predictor = self.sam_predictor
+        predictor.set_image(image)
+
+        size = image_pil.size
+        H, W = size[1], size[0]
+        for i in range(boxes_filt.size(0)):
+            boxes_filt[i] = boxes_filt[i] * torch.Tensor([W, H, W, H])
+            boxes_filt[i][:2] -= boxes_filt[i][2:] / 2
+            boxes_filt[i][2:] += boxes_filt[i][:2]
+
+        boxes_filt = boxes_filt.cpu()
+        # use NMS to handle overlapped boxes
+        print(f"Before NMS: {boxes_filt.shape[0]} boxes")
+        nms_idx = torchvision.ops.nms(boxes_filt, scores, self.iou_threshold).numpy().tolist()
+        boxes_filt = boxes_filt[nms_idx]
+        pred_phrases = [pred_phrases[idx] for idx in nms_idx]
+        print(f"After NMS: {boxes_filt.shape[0]} boxes")
+        
         transformed_boxes = predictor.transform.apply_boxes_torch(boxes_filt, image.shape[:2]).to(self.device)
+        
         masks, _, _ = predictor.predict_torch(
             point_coords=None,
             point_labels=None,
             boxes=transformed_boxes.to(self.device),
             multimask_output=False,
         )
-
-        return masks, tags_chinese
+        # draw output image
+        plt.figure(figsize=(10, 10))
+        plt.imshow(image)
+        for mask in masks:
+            self.show_mask(mask.cpu().numpy(), plt.gca(), random_color=True)
+        for box, label in zip(boxes_filt, pred_phrases):
+            self.show_box(box.numpy(), plt.gca(), label)
+        return masks
 
 
 
