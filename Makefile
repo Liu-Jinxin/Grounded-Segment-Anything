@@ -40,7 +40,7 @@ endif
 	--env="DISPLAY" \
     --env="QT_X11_NO_MITSHM=1" \
     -v "/tmp/.X11-unix:/tmp/.X11-unix:rw" \
-	-v "${PWD}":/home/appuser/catkin_ws/src/grounded_sam \
+	-v "${PWD}":/home/appuser/catkin_ws/src/grounded_sam/script \
 	-v /home/jinxin/mydata/RosData/rosbag_realsense:/home/appuser/catkin_ws/src/grounded_sam/rosbag_realsense \
 	--name=gsa_ros \
 	--ipc=host gsa:v0

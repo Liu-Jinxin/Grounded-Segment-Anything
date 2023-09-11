@@ -33,16 +33,18 @@ RUN apt-get update && apt-get install -y curl lsb-release && \
     rosdep init && \
     rosdep update
 
+# Add ROS repositories for catkin_tools
+RUN sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list' && \
+    wget http://packages.ros.org/ros.key -O - | apt-key add - && \
+    apt-get update && \
+    apt-get install -y python3-catkin-tools
+
 WORKDIR /home/appuser
 RUN pip install --no-cache-dir diffusers[torch]==0.15.1 opencv-python==4.7.0.72 \
     pycocotools==2.0.6 matplotlib==3.5.3 \
     onnxruntime==1.14.1 onnx==1.13.1 ipykernel==6.16.2 scipy gradio openai
 
-# Install catkin_tools
-RUN apt-get update && apt-get install -y python3-catkin-tools
-
 # Create catkin_ws under /home/appuser
-
 RUN mkdir -p /home/appuser/catkin_ws/src && \
     cd /home/appuser/catkin_ws && \
     catkin init
